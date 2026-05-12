@@ -37,56 +37,23 @@ class Command
 
   ##
   # Spawns a command, captures its output and waits for it
-  # to finish. I/O and process wait are interleaved via
-  # IO.select so no background thread is needed.
-  #
+  # to finish.
   # @return [Command]
   def spawn
     return self if @spawned
-    tap do
-      @spawned = true
-      out_r, out_w = IO.pipe
-      err_r, err_w = IO.pipe
-
-      begin
-        pid = Process.spawn(@cmd, *@argv, out: out_w, err: err_w)
-      rescue Errno::ENOENT => ex
-        @cmd = "false"
-        @argv = []
-        @stderr = ex.message
-        @enoent = true
-        pid = Process.spawn("false")
-      end
-
-      out_w.close
-      err_w.close
-
-      readers = [out_r, err_r]
-      loop do
-        ready, = IO.select(readers, nil, nil, 0.01)
-        if ready
-          ready.each do |fd|
-            buf = fd.readpartial(4096)
-            if fd == out_r
-              @stdout << buf
-            else
-              @stderr << buf
-            end
-          rescue EOFError
-            readers.delete(fd)
-          end
-        end
-        break if readers.empty?
-      end
-
-      Process.waitpid(pid)
-      @status = $?
-    end
+    @spawned = true
+    @out_r, @out_w = IO.pipe
+    @err_r, @err_w = IO.pipe
+    spawn_with_fallback
+    @out_w.close
+    @err_w.close
+    read_output
+    wait_for_exit
+    self
   end
 
   ##
   # @return [Process::Status, nil]
-  #  Returns the status of a process
   def status
     spawn
     @status
@@ -94,18 +61,14 @@ class Command
 
   ##
   # @return [Integer, nil]
-  #  Returns the process ID of a spawned command
   def pid
-    s = status
-    s&.pid
+    (s = status)&.pid
   end
 
   ##
   # @return [Integer, nil]
-  #  Returns the exit status of a process
   def exit_status
-    s = status
-    s&.exitstatus
+    (s = status)&.exitstatus
   end
   alias_method :exitstatus, :exit_status
 
@@ -114,7 +77,6 @@ class Command
 
   ##
   # @return [String]
-  #  Returns the contents of stdout
   def stdout
     spawn
     @stdout
@@ -122,7 +84,6 @@ class Command
 
   ##
   # @return [String]
-  #  Returns the contents of stderr
   def stderr
     spawn
     @stderr
@@ -134,22 +95,18 @@ class Command
 
   ##
   # @return [Boolean]
-  #  Returns true when a command exited successfully
   def success?
-    s = status
-    s&.success? || false
+    (s = status)&.success? || false
   end
 
   ##
   # @return [Boolean]
-  #  Returns true when a command has been spawned
   def spawned?
     @spawned
   end
 
   ##
   # @return [Boolean]
-  #  Returns true when a command can't be found
   def command_not_found?
     spawn
     @enoent
@@ -162,19 +119,16 @@ class Command
 
   ##
   # @yieldparam [Command] cmd
-  #  Yields an instance of {Command}
   # @return [Command]
   def success
     tap do
       spawn
-      s = status
-      yield(self) if s&.success?
+      yield(self) if (s = status)&.success?
     end
   end
 
   ##
   # @yieldparam [Command] cmd
-  #  Yields an instance of {Command}
   # @return [Command]
   def failure
     tap do
@@ -184,4 +138,55 @@ class Command
     end
   end
   # @endgroup
+
+  private
+
+  ##
+  # Spawns the command, falling back to "false" if the
+  # command is not found.
+  # @return [void]
+  def spawn_with_fallback
+    begin
+      @pid = Process.spawn(@cmd, *@argv, out: @out_w, err: @err_w)
+    rescue Errno::ENOENT => ex
+      @cmd = "false"
+      @argv = []
+      @stderr = ex.message
+      @enoent = true
+      @pid = Process.spawn("false")
+    end
+  end
+
+  ##
+  # Reads stdout and stderr from the pipes until both
+  # reach EOF.
+  # @return [void]
+  def read_output
+    readers = [@out_r, @err_r]
+    loop do
+      ready, = IO.select(readers, nil, nil, 0.01)
+      if ready
+        ready.each do |fd|
+          buf = fd.readpartial(4096)
+          if fd == @out_r
+            @stdout << buf
+          else
+            @stderr << buf
+          end
+        rescue EOFError
+          readers.delete(fd)
+        end
+      end
+      break if readers.empty?
+    end
+  end
+
+  ##
+  # Waits for the spawned process to exit and captures
+  # its status.
+  # @return [void]
+  def wait_for_exit
+    Process.waitpid(@pid)
+    @status = $?
+  end
 end
