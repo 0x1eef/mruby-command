@@ -4,33 +4,89 @@ mruby-command provides an object-oriented interface for spawning
 a command on UNIX-like operating systems. It is an mruby port
 of [test-cmd.rb](https://github.com/0x1eef/test-cmd.rb).
 
-## Examples
+## Quick start
 
-### Callbacks
+#### Spawn
 
-Success and failure callbacks provide hooks for when
-a command exits successfully or unsuccessfully:
-
-```ruby
-Command.new("ruby", "-e", "exit 0")
-  .success { |cmd| print "Command [#{cmd.pid}] was successful\n" }
-  .failure { |cmd| print "Command [#{cmd.pid}] was unsuccessful\n" }
-```
-
-### Capturing output
+Spawn a command and collect its output and exit status:
 
 ```ruby
 cmd = Command.new("echo", "hello")
 puts cmd.stdout  # => "hello\n"
 ```
 
-### Checking exit status
+#### Callbacks
+
+Success and failure callbacks provide hooks for when a command
+exits successfully or unsuccessfully:
+
+```ruby
+Command.new("ruby", "-e", "exit 0")
+  .success { |cmd| print "Command [#{cmd.pid}] was successful\n" }
+  .failure { |cmd| print "Command [#{cmd.pid}] was unsuccessful\n" }
+
+Command.new("ruby", "-e", "exit 42")
+  .success { |cmd| print "unreachable\n" }
+  .failure { |cmd| print "Command [#{cmd.pid}] failed\n" }
+```
+
+#### Checking exit status
 
 ```ruby
 cmd = Command.new("ruby", "-e", "exit 42")
 puts cmd.exit_status  # => 42
 puts cmd.success?     # => false
 ```
+
+#### Command not found
+
+When the command is not found, failure callbacks still fire
+and `command_not_found?` returns true:
+
+```ruby
+cmd = Command.new("nonexistent")
+puts cmd.command_not_found?  # => true
+```
+
+## Features
+
+**Command.new(cmd, *argv)** <br>
+Creates a new command object with the given command and optional
+arguments. The command is not spawned until one of the output,
+status, or callback methods is called.
+
+**Command#spawn** <br>
+Spawns the command, captures stdout and stderr, and waits for the
+process to finish. Called automatically by methods that need output
+or exit status.
+
+**Command#stdout** <br>
+Returns the captured stdout output as a string.
+
+**Command#stderr** <br>
+Returns the captured stderr output as a string.
+
+**Command#pid** <br>
+Returns the process ID of the spawned command.
+
+**Command#exit_status** <br>
+Returns the exit status of the command, or nil if the command has
+not been spawned yet.
+
+**Command#success?** <br>
+Returns true if the command exited with a zero status.
+
+**Command#command_not_found?** <br>
+Returns true if the command could not be found.
+
+**Command#success** <br>
+Accepts a block that is called when the command exits successfully.
+
+**Command#failure** <br>
+Accepts a block that is called when the command exits unsuccessfully.
+
+**Command#argv** <br>
+Appends arguments to the command.
 
 ## Integration
 
