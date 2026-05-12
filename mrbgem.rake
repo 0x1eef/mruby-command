@@ -12,7 +12,7 @@ MRuby::Gem::Specification.new("mruby-command") do |spec|
   spec.add_dependency "mruby-errno",   github: "iij/mruby-errno"
 
   if ENV["ENV"] == "TEST"
-    spec.add_dependency "mruby-minitest", github: "0x1eef/mruby-minitest"
+    spec.add_dependency "mruby-minitest", github: "0x1eef/mruby-minitest", branch: "main"
     spec.rbfiles.concat Dir[File.expand_path("spec/*.rb", __dir__)].sort
   end
 
