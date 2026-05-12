@@ -12,6 +12,18 @@
 #     .failure { |cmd| print "FAIL: status=#{cmd.exit_status}" }
 class Command
   ##
+  # @api private
+  Pipe = Struct.new(:r, :w) do
+    def self.pair
+      new(*IO.pipe)
+    end
+
+    def close
+      [r, w].each(&:close)
+    end
+  end
+
+  ##
   # @param [String] cmd
   #  A command to spawn
   # @param [Array<String>] argv
@@ -42,14 +54,17 @@ class Command
   def spawn
     return self if @spawned
     @spawned = true
-    @out_r, @out_w = IO.pipe
-    @err_r, @err_w = IO.pipe
-    spawn_with_fallback
-    @out_w.close
-    @err_w.close
-    read_output
+    out = Pipe.pair
+    err = Pipe.pair
+    spawn_with_fallback(out, err)
+    out.w.close
+    err.w.close
+    read_output(out, err)
     wait_for_exit
     self
+  ensure
+    out&.close
+    err&.close
   end
 
   ##
@@ -144,10 +159,12 @@ class Command
   ##
   # Spawns the command, falling back to "false" if the
   # command is not found.
+  # @param [Command::Pipe] out
+  # @param [Command::Pipe] err
   # @return [void]
-  def spawn_with_fallback
+  def spawn_with_fallback(out, err)
     begin
-      @pid = Process.spawn(@cmd, *@argv, out: @out_w, err: @err_w)
+      @pid = Process.spawn(@cmd, *@argv, out: out.w, err: err.w)
     rescue Errno::ENOENT => ex
       @cmd = "false"
       @argv = []
@@ -160,15 +177,17 @@ class Command
   ##
   # Reads stdout and stderr from the pipes until both
   # reach EOF.
+  # @param [Command::Pipe] out
+  # @param [Command::Pipe] err
   # @return [void]
-  def read_output
-    readers = [@out_r, @err_r]
+  def read_output(out, err)
+    readers = [out.r, err.r]
     loop do
       ready, = IO.select(readers, nil, nil, 0.01)
       if ready
         ready.each do |fd|
           buf = fd.readpartial(4096)
-          if fd == @out_r
+          if fd == out.r
             @stdout << buf
           else
             @stderr << buf
