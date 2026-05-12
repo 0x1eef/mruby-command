@@ -1,7 +1,2 @@
-*.gem
-.gems
-.bundle
-Gemfile.lock
-.yardoc/
-doc/
-pkg/
+build/
+mrbc
