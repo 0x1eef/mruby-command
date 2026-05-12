@@ -12,18 +12,6 @@
 #     .failure { |cmd| print "FAIL: status=#{cmd.exit_status}" }
 class Command
   ##
-  # @api private
-  class Pipe < Struct.new(:r, :w)
-    def self.pair
-      new(*IO.pipe)
-    end
-
-    def close
-      [r, w].each(&:close)
-    end
-  end
-
-  ##
   # @param [String] cmd
   #  A command to spawn
   # @param [Array<String>] argv
@@ -48,19 +36,51 @@ class Command
   end
 
   ##
-  # Spawns a command
+  # Spawns a command, captures its output and waits for it
+  # to finish. I/O and process wait are interleaved via
+  # IO.select so no background thread is needed.
+  #
   # @return [Command]
   def spawn
     return self if @spawned
     tap do
       @spawned = true
-      out = Pipe.pair
-      err = Pipe.pair
-      thread = produce(out, err)
-      consume(thread, out, err)
-    ensure
-      out&.close
-      err&.close
+      out_r, out_w = IO.pipe
+      err_r, err_w = IO.pipe
+
+      begin
+        pid = Process.spawn(@cmd, *@argv, out: out_w, err: err_w)
+      rescue Errno::ENOENT => ex
+        @cmd = "false"
+        @argv = []
+        @stderr = ex.message
+        @enoent = true
+        pid = Process.spawn("false")
+      end
+
+      out_w.close
+      err_w.close
+
+      readers = [out_r, err_r]
+      loop do
+        ready, = IO.select(readers, nil, nil, 0.01)
+        if ready
+          ready.each do |fd|
+            buf = fd.readpartial(4096)
+            if fd == out_r
+              @stdout << buf
+            else
+              @stderr << buf
+            end
+          rescue EOFError
+            readers.delete(fd)
+          end
+        end
+        break if readers.empty?
+      end
+
+      Process.waitpid(pid)
+      @status = $?
     end
   end
 
@@ -164,62 +184,4 @@ class Command
     end
   end
   # @endgroup
-
-  private
-
-  ##
-  # @param [Command::Pipe] out
-  #  A pipe for stdout
-  # @param [Command::Pipe] err
-  #  A pipe for stderr
-  # @return [Thread]
-  #  Returns a thread for a spawned command
-  def produce(out, err)
-    Thread.new do
-      begin
-        pid = Process.spawn(@cmd, *@argv, out: out.w, err: err.w)
-        out.w.close
-        err.w.close
-        Process.wait(pid)
-        @status = $?
-      rescue Errno::ENOENT => ex
-        @cmd = "false"
-        @argv = []
-        @stderr = ex.message
-        @enoent = true
-        pid = Process.spawn("false")
-        Process.wait(pid)
-        @status = $?
-      end
-    end
-  end
-
-  ##
-  # @param [Thread] thread
-  #  A thread for a spawned command
-  # @param [Command::Pipe] out
-  #  A pipe for stdout
-  # @param [Command::Pipe] err
-  #  A pipe for stderr
-  # @return [void]
-  def consume(thread, out, err)
-    readers = [out.r, err.r]
-    loop do
-      ready, = IO.select(readers, nil, nil, 0.01)
-      if ready
-        ready.each do |fd|
-          buf = fd.readpartial(4096)
-          if fd == out.r
-            @stdout << buf
-          else
-            @stderr << buf
-          end
-        rescue EOFError
-          readers.delete(fd)
-        end
-      end
-      break if readers.empty?
-      break unless thread.alive? || IO.select(readers, nil, nil, 0.01)
-    end
-  end
 end
