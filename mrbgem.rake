@@ -6,7 +6,7 @@ MRuby::Gem::Specification.new("mruby-command") do |spec|
   spec.version = "0.1.0"
   spec.description = "An object-oriented interface for spawning a command"
 
-  spec.add_dependency "mruby-process", github: "iij/mruby-process"
+  spec.add_dependency "mruby-process", github: "0x1eef/mruby-process", branch: "main"
   spec.add_dependency "mruby-io",      github: "iij/mruby-io"
   spec.add_dependency "mruby-struct",  github: "iij/mruby-struct"
   spec.add_dependency "mruby-errno",   github: "iij/mruby-errno"

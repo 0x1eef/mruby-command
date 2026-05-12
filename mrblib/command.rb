@@ -19,7 +19,9 @@ class Command
     end
 
     def close
-      [r, w].each(&:close)
+      [r, w].each do |io|
+        io.close unless io.closed?
+      end
     end
   end
 
@@ -187,13 +189,13 @@ class Command
       ready, = IO.select(readers, nil, nil, 0.01)
       if ready
         ready.each do |fd|
-          buf = fd.readpartial(4096)
+          buf = fd.sysread(4096)
           if fd == out.r
             @stdout << buf
           else
             @stderr << buf
           end
-        rescue EOFError
+        rescue EOFError, IOError
           readers.delete(fd)
         end
       end

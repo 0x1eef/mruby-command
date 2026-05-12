@@ -72,9 +72,11 @@ describe "Command" do
       expect(cmd.pid).must_be_kind_of Integer
     end
 
-    it "returns nil before spawning" do
+    it "triggers spawn" do
       cmd = Command.new("true")
-      expect(cmd.pid).must_be_nil
+      expect(cmd.spawned?).must_equal false
+      cmd.pid
+      expect(cmd.spawned?).must_equal true
     end
   end
 
@@ -89,9 +91,11 @@ describe "Command" do
       expect(cmd.exit_status).must_equal 1
     end
 
-    it "returns nil before spawning" do
+    it "triggers spawn" do
       cmd = Command.new("true")
-      expect(cmd.exit_status).must_be_nil
+      expect(cmd.spawned?).must_equal false
+      cmd.exit_status
+      expect(cmd.spawned?).must_equal true
     end
   end
 
