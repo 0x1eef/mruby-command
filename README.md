@@ -30,7 +30,7 @@ Command.new("ruby", "-e", "exit 42")
   .failure { |cmd| print "Command [#{cmd.pid}] failed\n" }
 ```
 
-#### Checking exit status
+#### Exit status
 
 ```ruby
 cmd = Command.new("ruby", "-e", "exit 42")
@@ -50,7 +50,7 @@ puts cmd.command_not_found?  # => true
 
 ## Features
 
-**Command.new(cmd, *argv)** <br>
+**Command.new(cmd, \*argv)** <br>
 Creates a new command object with the given command and optional
 arguments. The command is not spawned until one of the output,
 status, or callback methods is called.
