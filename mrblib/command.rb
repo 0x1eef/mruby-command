@@ -56,11 +56,12 @@ class Command
     @spawned = true
     out = Pipe.pair
     err = Pipe.pair
-    spawn_with_fallback(out, err)
+    @pid = fork_and_capture(out, err)
     out.w.close
     err.w.close
     read_output(out, err)
-    wait_for_exit
+    Process.waitpid(@pid)
+    @status = $?
     self
   ensure
     out&.close
@@ -157,20 +158,29 @@ class Command
   private
 
   ##
-  # Spawns the command, falling back to "false" if the
-  # command is not found.
+  # Forks a child process, redirects its stdout and stderr
+  # to the given pipes, and runs the command via system.
+  # Falls back to "false" when the command is not found.
   # @param [Command::Pipe] out
   # @param [Command::Pipe] err
-  # @return [void]
-  def spawn_with_fallback(out, err)
-    begin
-      @pid = Process.spawn(@cmd, *@argv, out: out.w, err: err.w)
-    rescue Errno::ENOENT => ex
-      @cmd = "false"
-      @argv = []
-      @stderr = ex.message
-      @enoent = true
-      @pid = Process.spawn("false")
+  # @return [Integer] child pid
+  def fork_and_capture(out, err)
+    fork do
+      $stdout.reopen(out.w)
+      $stderr.reopen(err.w)
+      [out.r, err.r].each(&:close)
+      unless system("#{shellescape(@cmd)} #{@argv.map { shellescape(_1) }.join(' ')}")
+        @exit_code = $?.exitstatus
+      end
+      exit!(@exit_code || 0)
+    end
+  rescue Errno::ENOENT
+    @cmd = "false"
+    @argv = []
+    @stderr = "No such file or directory - #{@cmd}"
+    @enoent = true
+    fork do
+      exit!(1)
     end
   end
 
@@ -201,11 +211,10 @@ class Command
   end
 
   ##
-  # Waits for the spawned process to exit and captures
-  # its status.
-  # @return [void]
-  def wait_for_exit
-    Process.waitpid(@pid)
-    @status = $?
+  # Shell-escapes a string for use in system().
+  # @param [String] s
+  # @return [String]
+  def shellescape(s)
+    "'" + s.to_s.gsub("'", %q('"'"')) + "'"
   end
 end
