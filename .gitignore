@@ -1,2 +1,4 @@
 build/
-mrbc
+/*.lock
+/bin
+/tmp

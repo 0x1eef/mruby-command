@@ -1,19 +1,17 @@
 MRuby::Build.new("mruby-command") do |conf|
-  profile = ENV.fetch("BUILD_PROFILE", "test")
+  profile = ENV.fetch("BUILD", "test")
   source_root = File.expand_path("..", __dir__)
 
   conf.toolchain
   conf.gembox "default"
+  conf.gem "."
 
   case profile
   when "test", "developer"
     conf.enable_debug
-    ENV["ENV"] = "TEST"
   when "production"
     conf.cc.flags << "-DNDEBUG"
   else
-    raise ArgumentError, "unknown BUILD_PROFILE=#{profile.inspect}"
+    raise ArgumentError, "unknowwn BUILD=#{profile.inspect}"
   end
-
-  conf.gem File.expand_path(__dir__)
 end
