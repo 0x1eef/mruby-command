@@ -11,8 +11,6 @@
 #     .success { |cmd| print "OK: pid=#{cmd.pid}" }
 #     .failure { |cmd| print "FAIL: status=#{cmd.exit_status}" }
 class Command
-  HAS_MRUBY_TASK = Object.const_defined?(:Task)
-
   ##
   # @api private
   Pipe = Struct.new(:r, :w) do
@@ -64,8 +62,8 @@ class Command
     out.w.close
     err.w.close
     read_output(out, err)
-    until Process.waitpid(@pid, Process::WNOHANG)
-      HAS_MRUBY_TASK ? sleep_ms(1) : sleep(0.01)
+    while Process.waitpid(@pid, Process::WNOHANG).nil?
+      task? ? sleep_ms(1) : sleep(0.01)
     end
     @status = $?
     self
@@ -190,7 +188,7 @@ class Command
   def read_output(out, err)
     readers = [out.r, err.r]
     loop do
-      ready, = IO.select(readers, nil, nil, HAS_MRUBY_TASK ? 0 : 0.01)
+      ready, = IO.select(readers, nil, nil, task? ? 0 : 0.01)
       if ready
         ready.each do |fd|
           buf = fd.sysread(4096)
@@ -201,11 +199,18 @@ class Command
           end
         rescue EOFError, IOError
           readers.delete(fd)
+        rescue Errno::EAGAIN, Errno::EWOULDBLOCK
+          task? and sleep_ms(1)
         end
-      else
-        HAS_MRUBY_TASK and Task.pass
       end
+      task? and sleep_ms(1)
       break if readers.empty?
     end
+  end
+
+  ##
+  # @return [Boolean]
+  def task?
+    Object.const_defined?(:Task) and Task.current
   end
 end
