@@ -1,8 +1,9 @@
 ## About
 
-mruby-command provides an object-oriented interface for spawning
-a command on UNIX-like operating systems. It is an mruby port
-of [test-cmd.rb](https://github.com/0x1eef/test-cmd.rb).
+mruby-command provides Go-inspired, non-blocking commands
+that work well with mruby's cooperative scheduler (mruby-task).
+Loosely based on CRuby's [test-cmd.rb](https://github.com/0x1eef/test-cmd.rb),
+although the two projects have diverged over time.
 
 ## Quick start
 
