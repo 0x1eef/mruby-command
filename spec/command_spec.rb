@@ -158,6 +158,18 @@ describe "Command" do
     end
   end
 
+  describe "#failure?" do
+    it "returns false when exit status is 0" do
+      cmd = Command.new("true")
+      expect(cmd.failure?).must_equal false
+    end
+
+    it "returns true when exit status is 1" do
+      cmd = Command.new("false")
+      expect(cmd.failure?).must_equal true
+    end
+  end
+
   describe "#spawned?" do
     it "returns false before spawn" do
       cmd = Command.new("true")

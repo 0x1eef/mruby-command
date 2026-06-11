@@ -121,6 +121,12 @@ class Command
 
   ##
   # @return [Boolean]
+  def failure?
+    !success?
+  end
+
+  ##
+  # @return [Boolean]
   def spawned?
     @spawned
   end
