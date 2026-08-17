@@ -2,8 +2,7 @@
 
 mruby-command provides Go-inspired, non-blocking commands
 that work well with mruby's cooperative scheduler (mruby-task).
-Loosely based on CRuby's [test-cmd.rb](https://github.com/0x1eef/test-cmd.rb),
-although the two projects have diverged over time.
+It is based on code that was originally written for CRuby.
 
 ## Install
 
