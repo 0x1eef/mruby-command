@@ -5,6 +5,16 @@ that work well with mruby's cooperative scheduler (mruby-task).
 Loosely based on CRuby's [test-cmd.rb](https://github.com/0x1eef/test-cmd.rb),
 although the two projects have diverged over time.
 
+## Install
+
+```ruby
+MRuby::Build.new("app") do |conf|
+  conf.toolchain
+  conf.gembox "default"
+  conf.gem github: "0x1eef/mruby-command", branch: "main"
+end
+```
+
 ## Quick start
 
 #### Spawn
@@ -88,28 +98,6 @@ Accepts a block that is called when the command exits unsuccessfully.
 
 **Command#argv** <br>
 Appends arguments to the command.
-
-## Integration
-
-Add to your mruby build config:
-
-```ruby
-MRuby::Build.new("app") do |conf|
-  conf.toolchain
-  conf.gembox "default"
-  conf.gem github: "0x1eef/mruby-command", branch: "main"
-end
-```
-
-Dependencies are declared in [mrbgem.rake](mrbgem.rake) and resolved
-automatically by the mruby build system:
-
-| Dependency | Purpose |
-|---|---|
-| [mruby-process](https://github.com/iij/mruby-process) | Process.spawn, Process.waitpid, $? |
-| [mruby-io](https://github.com/iij/mruby-io) | IO.pipe, IO.select |
-| [mruby-struct](https://github.com/iij/mruby-struct) | Command::Pipe (Struct) |
-| [mruby-errno](https://github.com/iij/mruby-errno) | Errno::ENOENT handling |
 
 ## License
 
